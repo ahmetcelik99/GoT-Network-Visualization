@@ -1,0 +1,94 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Game of Thrones Network Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/1.2.1/sigma.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/1.2.1/plugins/sigma.parsers.json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/1.2.1/plugins/sigma.plugins.filter.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #container { position: absolute; top: 0; bottom: 0; width: 100%; background: white; }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <script>
+        sigma.parsers.json('data.json', {
+            container: 'container',
+            settings: {
+                defaultNodeColor: '#ec5148',
+                edgeColor: 'default',
+                defaultEdgeColor: '#cccccc',
+                minNodeSize: 2,
+                maxNodeSize: 20,
+                labelThreshold: 8,
+                zoomingRatio: 1.2,
+                minEdgeSize: 0.1,
+                maxEdgeSize: 2,
+                defaultLabelColor: '#000',
+                labelSize: 'proportional',
+                defaultLabelSize: 14 // Etiket boyutunu artır
+            }
+        }, function(s) {
+            var originalNodes = s.graph.nodes().slice();
+            var originalEdges = s.graph.edges().slice();
+
+            // Büyük düğümler için sürekli görünürlük ve daha büyük boyut
+            s.graph.nodes().forEach(function(node) {
+                node.originalLabel = node.label; // Orijinal etiketleri sakla
+
+                if (node.size > 8) { // Büyük düğümler için eşiği ayarlayın
+                    node.font = 'Arial';
+                    node.labelSize = 'fixed';
+                    node.labelColor = 'node';
+                    node.size *= 2; // Büyük düğümleri daha büyük yapın
+                } else {
+                    node.label = '';
+                }
+                if (node.size < 3) { // Küçük düğümler için eşiği ayarlayın
+                    node.size = 3; // Küçük düğümleri görünür yapmak için boyutlarını artırın
+                }
+            });
+
+            // Küçük düğümlerin etiketlerinin yalnızca yakınlaştırıldığında veya üzerine gelindiğinde görünmesi
+            s.bind('overNode', function(e) {
+                var node = e.data.node;
+                node.label = node.originalLabel; // Etiketi orijinal label ile ayarlayın
+                s.refresh();
+            });
+
+            s.bind('outNode', function(e) {
+                var node = e.data.node;
+                if (node.size < 8) {
+                    node.label = ''; // Küçük düğümlerin etiketini kaldırın
+                }
+                s.refresh();
+            });
+
+            // Tıklanan düğüm ve aynı renkteki düğümler ile bağlantıların görünmesi
+            s.bind('clickNode', function(e) {
+                var nodeColor = e.data.node.color;
+
+                sigma.plugins.filter(s).undo('node-filter').nodesBy(function(n) {
+                    return n.color === nodeColor;
+                }, 'node-filter').apply();
+
+                sigma.plugins.filter(s).edgesBy(function(edge) {
+                    return s.graph.nodes(edge.source).color === nodeColor && s.graph.nodes(edge.target).color === nodeColor;
+                }, 'edge-filter').apply();
+            });
+
+            // Grafiğin tamamını gösterme
+            s.bind('clickStage', function(e) {
+                sigma.plugins.filter(s).undo('node-filter').apply();
+                sigma.plugins.filter(s).undo('edge-filter').apply();
+                s.refresh();
+            });
+
+            s.refresh();
+        });
+    </script>
+</body>
+</html>
